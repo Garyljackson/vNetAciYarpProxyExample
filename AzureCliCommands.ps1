@@ -83,9 +83,20 @@ az webapp vnet-integration add `
     --vnet $VNetName `
     --subnet $WebAppIntegrationSubnetName
 
-# Deploy the YARP proxy application from the GitHub repo
+# Link the YARP proxy application from the GitHub repo
 az webapp deployment source config `
     --branch master `
+    --manual-integration `
     --name $ProxyWebAppName `
     --repo-url https://github.com/Garyljackson/vNetAciYarpProxyExample/ `
     --resource-group $ResourceGroupName
+
+# Deploy the source code to the web app
+az webapp deployment source sync `
+    --name $ProxyWebAppName `
+    --resource-group $ResourceGroupName
+
+# Display the details to access the proxy application
+az webapp config hostname list `
+    --resource-group $ResourceGroupName `
+    --webapp-name $ProxyWebAppName
