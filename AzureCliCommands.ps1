@@ -18,6 +18,7 @@ $ProxyWebAppName = 'ExampleAciProxy12345'
 
 az group create --name $ResourceGroupName --location $Location
 
+# Create the virtual network
 az network vnet create `
     --name $VNetName `
     --resource-group $ResourceGroupName `
@@ -26,6 +27,8 @@ az network vnet create `
     --subnet-name $DefaultSubnetName `
     --subnet-prefix $DefaultSubnetCIDR
 
+# Create 2 subnets
+# You can't mix resource types in a single resource group due to the delegations on each subnet
 az network vnet subnet create `
     --name $AciSubnetName `
     --resource-group $ResourceGroupName `
@@ -39,6 +42,7 @@ az network vnet subnet create `
     --address-prefixes $WebAppIntegrationSubnet `
     --delegations 'Microsoft.Web/serverFarms'
 
+# Deploy the ACI instance to the virtual network
 az container create `
     --name appcontainer `
     --resource-group $ResourceGroupName `
@@ -46,6 +50,7 @@ az container create `
     --vnet $VNetName `
     --subnet $AciSubnetName
 
+# Create the proxy web app resources
 # Needs to be S1 to support vNet integration
 az appservice plan create `
     --resource-group $ResourceGroupName `
@@ -59,6 +64,7 @@ az webapp create `
     --plan $AppServicePlanName `
     --runtime '"DOTNET|6.0"'
 
+# Get the ip address for the ACI instance we deployed - this is used in the proxy web app settings
 $AciIp = $(az container show `
         --name appcontainer `
         --resource-group $ResourceGroupName `
@@ -70,15 +76,16 @@ az webapp config appsettings set `
     --name $ProxyWebAppName `
     --settings ReverseProxy__Clusters__MinimumCluster__Destinations__MyBackend__Address="http://$AciIp"
 
+# Setup the vNet integration for the web app to its subnet
 az webapp vnet-integration add `
     --resource-group $ResourceGroupName `
     --name $ProxyWebAppName `
     --vnet $VNetName `
     --subnet $WebAppIntegrationSubnetName
 
-az webapp deployment source config 
---branch master 
---manual-integration 
---name MyWebApp 
---repo-url https://github.com/Azure-Samples/function-image-upload-resize 
---resource-group $ResourceGroupName
+# Deploy the YARP proxy application from the GitHub repo
+az webapp deployment source config `
+    --branch master `
+    --name $ProxyWebAppName `
+    --repo-url https://github.com/Garyljackson/vNetAciYarpProxyExample/ `
+    --resource-group $ResourceGroupName
